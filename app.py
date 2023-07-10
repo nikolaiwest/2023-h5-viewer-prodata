@@ -42,6 +42,10 @@ def plot_single_metric(
 
     data = []
     x_values = []
+    
+    # Controll all errors
+    num_of_errors = 0 
+    list_of_errors = []
 
     # Loop over all cycles
     for cycle in selected_cycles:
@@ -55,8 +59,13 @@ def plot_single_metric(
             ]
             x_values += [imported_data[f"{cycle}/add_data/block3_values"][0][0]]
         except KeyError:
-            st.write("key error")
+            num_of_errors += 1
+            list_of_errors += [cycle]
             continue
+        
+    if num_of_errors != 0:
+        st.write(f"Total number of errors omitted: {num_of_errors}")
+        st.write(list_of_errors)
 
     # Add data to figure
     fig.add_trace(
