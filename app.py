@@ -1,35 +1,52 @@
+# Import necessary libraries
 import h5py
 import streamlit as st
 import plotly.graph_objects as go
 
 # Project-specific module
+# Contains constants for labels used in the project
 from ui.auxiliaries import (
     labels_time_series,
     labels_single_metrics,
     labels_quality_metrics,
 )
 
-
+# Use streamlit's caching mechanism to avoid reloading the data for every rerun of the script
 @st.cache_resource
 def load_data(path: str) -> h5py.File:
-    """Loads data from h5 file."""
+    """
+    Loads data from an h5 file.
+    
+    Parameters:
+    path (str): The path to the h5 file.
+
+    Returns:
+    h5py.File: The loaded h5 file.
+    """
     return h5py.File(path, "r+")
 
-
+# Helper function to plot a single metric
 def plot_single_metric(
     selected_metric: str, selected_cycles: list, imported_data: h5py.File
 ) -> None:
-    """Creates a plot of a time series value."""
+    """
+    Creates a plot of a single metric.
 
-    # Create a new Plotly figure object
+    Parameters:
+    selected_metric (str): The metric to be plotted.
+    selected_cycles (list): The cycles for which the metric should be plotted.
+    imported_data (h5py.File): The loaded h5 data file.
+    """
     fig = go.Figure()
     legend = selected_metric
 
-    # Get values
     data = []
     x_values = []
 
+    # Loop over all cycles
     for cycle in selected_cycles:
+        # Try to load the cycle data, if it fails due to KeyError (non-existing key),
+        # skip the cycle and continue with the next one.
         try:
             data += [
                 imported_data[
@@ -64,15 +81,22 @@ def plot_single_metric(
     st.plotly_chart(fig, use_container_width=True)
 
 
+# Helper function to plot a time series
 def plot_time_series(
     selected_metric: str, selected_cycles: list, imported_data: h5py.File
 ) -> None:
-    """Creates a plot of a time series value."""
+    """
+    Creates a plot of a time series value.
 
-    # Create a new Plotly figure object
+    Parameters:
+    selected_metric (str): The metric to be plotted.
+    selected_cycles (list): The cycles for which the metric should be plotted.
+    imported_data (h5py.File): The loaded h5 data file.
+    """
     fig = go.Figure()
     legend = selected_metric
 
+    # Loop over all cycles
     for cycle in selected_cycles:
         # Get KurvenMesserwerte_i
         data_1 = imported_data[f"{cycle}/f3113I_Value/block0_values"][
@@ -88,7 +112,7 @@ def plot_time_series(
             go.Scatter(
                 y=data_1 + data_2,
                 mode="lines",
-                name=f"{legend} (cycle {cycle})",
+                name=f"{legend} ({cycle})",
             )
         )
 
@@ -104,21 +128,28 @@ def plot_time_series(
     st.plotly_chart(fig, use_container_width=True)
 
 
-#
+# Helper function to plot a quality metric
 def plot_quality_metric(
     selected_metric: str, selected_cycles: list, imported_data: h5py.File
 ) -> None:
-    """Creates a plot of a time series value."""
+    """
+    Creates a plot of a quality metric.
 
-    # Create a new Plotly figure object
+    Parameters:
+    selected_metric (str): The metric to be plotted.
+    selected_cycles (list): The cycles for which the metric should be plotted.
+    imported_data (h5py.File): The loaded h5 data file.
+    """
     fig = go.Figure()
     legend = selected_metric
 
-    # Get values
     data = []
     x_values = []
 
+    # Loop over all cycles
     for cycle in selected_cycles:
+        # Try to load the cycle data, if it fails due to KeyError (non-existing key),
+        # skip the cycle and continue with the next one.
         try:
             data += [
                 imported_data[f"{cycle}/add_data/block2_values"][0][
@@ -156,22 +187,18 @@ def plot_quality_metric(
 # Configure the layout of the Streamlit app
 st.set_page_config(layout="wide")
 
-# H E A D E R S
-
-# Sidebar configuration
+# Headers configuration for the side bar
 st.sidebar.title("Settings")
 
 # Main page configuration
 st.title("Injection Molding Data Viewer")
 st.write("This application allows you to visualize time series data from an H5 file.")
 
-# L O A D   D A T A
-
-# subheader
+# Header for data loading section
 st.sidebar.header("Load data")
 
 # User input for the file path
-path = st.sidebar.text_input("Path to file:", "data/Bosch2_20230704.h5")
+path = st.sidebar.text_input("Path to file:", "data/20230704.h5")
 
 # Load data from the H5 file and continue
 try:
@@ -192,86 +219,35 @@ try:
             "Select one or more cycles:", options=list_of_cycles
         )
     col1, col2, col3 = st.columns(3)
-    col1.write(f"Total number of cycles:\t ```{len(list_of_cycles)}```")
-    col2.write(f"Number of selected cycles:\t ```{len(selected_cycles)}```")
-    selection_ratio = round(len(selected_cycles) / len(list_of_cycles) * 100, ndigits=2)
-    col3.write(f"Ratio of selected cycles: \t  ```{selection_ratio}%```")
-
-    # Header for visualizations
-    st.sidebar.header("Select visalizations")
-    st.header("Visualizations")
-
-    # Sidebar single metrics
-    st.sidebar.subheader("Single metrics")
-    show_single_metrics = st.sidebar.checkbox(
-        label="Show", value=True, key="show single metrics"
-    )
-    if show_single_metrics:
-        single_metrics_to_select = list(labels_single_metrics.keys())
-        selected_single_metrics = st.sidebar.multiselect(
-            label="Select metrics to visualize",
-            options=single_metrics_to_select,
-            default=single_metrics_to_select[0],
-            key="selected single metrics",
+    # User input for selecting a single metric
+    with col1:
+        st.header("Single Metrics")
+        single_metric = st.selectbox(
+            "Select a single metric:",
+            options=list(labels_single_metrics.keys()),
+            key="single_metric",
         )
+        plot_single_metric(single_metric, selected_cycles, data)
 
-        # Main page single metrics
-        st.subheader("Single metric visualizations")
-
-        # Iterate over selection
-        for metric in selected_single_metrics:
-            # plot each metric
-            plot_single_metric(metric, selected_cycles, data)
-
-    # Sidebar time series
-    st.sidebar.subheader("Time series")
-    show_time_series = st.sidebar.checkbox(
-        label="Show", value=True, key="show time series"
-    )
-    if show_time_series:
-        time_series_to_select = list(labels_time_series.keys())
-        selected_time_series = st.sidebar.multiselect(
-            label="Select metrics to visualize",
-            options=time_series_to_select,
-            default=time_series_to_select[1],
-            key="selected time series",
+    # User input for selecting a time series metric
+    with col2:
+        st.header("Time Series")
+        time_series_metric = st.selectbox(
+            "Select a time series metric:",
+            options=list(labels_time_series.keys()),
+            key="time_series",
         )
+        plot_time_series(time_series_metric, selected_cycles, data)
 
-        # Main page time series
-        st.subheader("Time series visualizations")
-
-        # Iterate over selection
-        for metric in selected_time_series:
-            # plot each metric
-            plot_time_series(metric, selected_cycles, data)
-
-    # Sidebar quality metrics
-    st.sidebar.subheader("Quality metrics")
-    show_quality_metrics = st.sidebar.checkbox(
-        label="Show", value=True, key="show quality metrics"
-    )
-    if show_quality_metrics:
-        quality_metrics_to_select = list(labels_quality_metrics.keys())
-        selected_quality_metrics = st.sidebar.multiselect(
-            label="Select metrics to visualize",
-            options=quality_metrics_to_select,
-            default=quality_metrics_to_select[1],
-            key="selected quality metrics",
+    # User input for selecting a quality metric
+    with col3:
+        st.header("Quality Metrics")
+        quality_metric = st.selectbox(
+            "Select a quality metric:",
+            options=list(labels_quality_metrics.keys()),
+            key="quality_metric",
         )
-
-        # Main page quality metrics
-        st.subheader("Quality metrics visualizations")
-
-        # Iterate over selection
-        for metric in selected_quality_metrics:
-            # plot each metric
-            plot_quality_metric(metric, selected_cycles, data)
-
-
-except Exception as e:
-    st.error(
-        "The selected path is invalid. Please select a valid path to a H5 file from an\
-            injection molding experiment.",
-        icon="🚨",
-    )
-    st.write(e)
+        plot_quality_metric(quality_metric, selected_cycles, data)
+except OSError:
+    st.sidebar.warning("Please input a valid h5 file path.")
+    st.sidebar.text_input("Path to file:", value="", key="file_path")
